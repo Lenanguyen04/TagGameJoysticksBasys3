@@ -39,7 +39,7 @@ module top(
     .DIN(8'b0),           // Unused, sending static data
     .MISO(MISO),
     .SS(SS),
-    .SCLK(SCLK),
+    .SCK(SCK),
     .MOSI(MOSI),
     .DOUT(jstkData)
   );
@@ -68,8 +68,8 @@ module top(
     .video_on(w_video_on), 
     .x(w_x), 
     .y(w_y),
-    .joystickX(DataX),
-    .joystickY(DataY),
+    .joystick_x(DataX),
+    .joystick_y(DataY),
     .rgb(rgb_next)
   );
     
