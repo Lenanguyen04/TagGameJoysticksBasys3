@@ -55,7 +55,7 @@ module PmodJSTK_Dual(
     // ------------------------------------------------
     // Polling divider
     // ------------------------------------------------
-    ClkDiv_5Hz PollClock (
+    ClkDiv_100Hz PollClock (
         .CLK(CLK),
         .RST(RST),
         .CLKOUT(poll_tick)
