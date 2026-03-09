@@ -33,8 +33,8 @@ module top(
 
   // SPI and Joystick Interface
   PmodJSTK joystick (
-    .clk(clk),
-    .reset(reset),
+    .CLK(clk),
+    .RST(reset),
     .sndRec(sndRec),
     .DIN(8'b0),           // Unused, sending static data
     .MISO(MISO),
@@ -46,8 +46,8 @@ module top(
 
     // Clock Divider for Send/Receive Signal (~5Hz for smoother updates)
     ClkDiv_5Hz genSndRec (
-      .clk(clk),
-      .reset(reset),
+      .CLK(clk),
+      .RST(reset),
       .CLKOUT(sndRec)
     );
   
