@@ -27,16 +27,6 @@ module top(
   wire [39:0] jstkData1;    // Data from PmodJSTK2 (JA)
   wire [39:0] jstkData2;    // Data from PmodJSTK2 (JB)
 
-  wire [9:0] data1_y, data1_x;      // JSTK 1 positions (JA)
-  wire [9:0] data2_y, data2_x;      // JSTK 2 positions (JB)
-  wire sndRec;             // Signal to send/receive data
-
-  assign data1_y = {jstkData1[25:24], jstkData1[39:32]}; // 2 bits from the 2nd byte + 8 bits from the 1st byte
-  assign data1_x = {jstkData1[9:8], jstkData1[23:16]};  // 2 bits from the 4th byte + 8 bits from the 3rd byte
-
-  assign data2_y = {jstkData2[25:24], jstkData2[39:32]};
-  assign data2_x = {jstkData2[9:8], jstkData2[23:16]};
-
   // SPI and Joystick Interface
   PmodJSTK_Dual joysticks (
     .CLK(clk),
@@ -49,6 +39,16 @@ module top(
     .DOUT1(jstkData1),
     .DOUT2(jstkData2)
   );
+
+  wire [9:0] data1_y, data1_x;      // JSTK 1 positions (JA)
+  wire [9:0] data2_y, data2_x;      // JSTK 2 positions (JB)
+
+  assign data1_y = {jstkData1[25:24], jstkData1[39:32]}; // 2 bits from the 2nd byte + 8 bits from the 1st byte
+  assign data1_x = {jstkData1[9:8], jstkData1[23:16]};  // 2 bits from the 4th byte + 8 bits from the 3rd byte
+
+  assign data2_y = {jstkData2[25:24], jstkData2[39:32]};
+  assign data2_x = {jstkData2[9:8], jstkData2[23:16]};
+
   
   vga_controller vc (
     .clk(clk), 
