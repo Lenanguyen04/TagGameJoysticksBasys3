@@ -78,10 +78,12 @@ module PmodJSTK_Dual_tb;
 
         // Wait until joystick 1 gets its packet
         wait (DOUT1 == PACKET1);
+        #1;
         $display("[%0t] DOUT1 updated correctly: %h", $time, DOUT1);
         $display("        joy1_x = %0d, joy1_y = %0d", joy1_x, joy1_y);
 
         // Wait until joystick 2 gets its packet
+        #1;
         wait (DOUT2 == PACKET2);
         $display("[%0t] DOUT2 updated correctly: %h", $time, DOUT2);
         $display("        joy2_x = %0d, joy2_y = %0d", joy2_x, joy2_y);
