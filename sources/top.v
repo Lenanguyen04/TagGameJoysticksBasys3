@@ -25,7 +25,7 @@ module top(
   // parameters for joystick
   wire [39:0] jstkData;    // Data from PmodJSTK2
   wire [9:0] DataY;      // JSTK Y-axis position
-  wire [9:0] DataX;      // JSTK Y-axis position
+  wire [9:0] DataX;      // JSTK X-axis position
   wire sndRec;             // Signal to send/receive data
 
   assign DataX = {jstkData[25:24], jstkData[39:32]}; // 2 bits from the 2nd byte + 8 bits from the 1st byte
