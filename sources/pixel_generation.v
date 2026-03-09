@@ -24,8 +24,8 @@ module pixel_generation(
     wire refresh_tick = (y == 10'd481) && (x == 10'd0);
 
     // joystick raw: 0..255
-    wire [7:0] jx = joystick_x[7:0];
-    wire [7:0] jy = joystick_y[7:0];
+    wire [7:0] jx = joystick_x[9:2];
+    wire [7:0] jy = joystick_y[9:2];
 
     // keep square fully on screen
     localparam integer X_LIM = X_MAX - (SQUARE_SIZE - 1);  // max left x
