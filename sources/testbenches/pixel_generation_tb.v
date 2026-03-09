@@ -5,8 +5,10 @@ module pixel_generation_tb;
   reg clk;
   reg reset;
   reg video_on;
-  reg [9:0] joystick_x;
-  reg [9:0] joystick_y;
+  reg [9:0] joystick1_x;
+  reg [9:0] joystick1_y;
+  reg [9:0] joystick2_x;
+  reg [9:0] joystick2_y;
   reg [9:0] x;
   reg [9:0] y;
   wire [11:0] rgb;
@@ -15,8 +17,10 @@ module pixel_generation_tb;
     .clk(clk),
     .reset(reset),
     .video_on(video_on),
-    .joystick_x(joystick_x),
-    .joystick_y(joystick_y),
+    .joystick1_x(joystick1_x),
+    .joystick1_y(joystick1_y),
+    .joystick2_x(joystick2_x),
+    .joystick2_y(joystick2_y),
     .x(x),
     .y(y),
     .rgb(rgb)
@@ -38,64 +42,65 @@ module pixel_generation_tb;
   initial begin
     reset = 1;
     video_on = 1;
-    joystick_x = 10'd0;
-    joystick_y = 10'd0;
+    joystick1_x = 10'd0;
+    joystick1_y = 10'd0;
+    joystick2_x = 10'd0;
+    joystick2_y = 10'd0;
     x = 10'd0;
     y = 10'd0;
 
     #20
     reset = 0;
 
-    // ----Move square to top left----
-    joystick_x = 10'd0;
-    joystick_y = 10'd0;
+    // ----Move square 1 to top left, square 2 to bottom right----
+    joystick1_x = 10'd0;
+    joystick1_y = 10'd0;
+    joystick2_x = 10'd1023;
+    joystick2_y = 10'd1023;
     do_refresh_tick;
 
-    // inside square
+    // inside square 1
     x = 10'd10;
     y = 10'd10;
     #1;
-    $display("Top left inside test rgb = %h (expect 0FF)", rgb);
+    $display("Square 1 inside rgb = %h (expect 0FF)", rgb);
 
-    // outside square
-    x = 10'd100;
-    y = 10'd100;
-    #1;
-    $display("Top left outside test rgb = %h (expect F00)", rgb);
-
-    // ----Move square to center----
-    joystick_x = 10'd512;
-    joystick_y = 10'd512;
-    do_refresh_tick;
-
-    // inside square
-    x = 10'd300;
-    y = 10'd220;
-    #1;
-    $display("Center inside test rgb = %h (expect 0FF)", rgb);
-
-    // outside square
-    x = 10'd50;
-    y = 10'd50;
-    #1;
-    $display("Center outside test rgb = %h (expect F00)", rgb);
-
-    // ----Move square to bottom right----
-    joystick_x = 10'd1023;
-    joystick_y = 10'd1023;
-    do_refresh_tick;
-
-    // inside square
+    // inside square 2
     x = 10'd600;
     y = 10'd440;
     #1;
-    $display("Bottom right inside test rgb = %h (expect 0FF)", rgb);
+    $display("Square 2 inside rgb = %h (expect 0F0)", rgb);
 
-    // outside square 
-    x = 10'd100;
-    y = 10'd100;
+    // background
+    x = 10'd300;
+    y = 10'd200;
     #1;
-    $display("Bottom right outside test rgb = %h (expect F00)", rgb);
+    $display("Background rgb = %h (expect F00)", rgb);   
+
+    // ----swap positinos----
+    joystick1_x = 10'd1023;
+    joystick1_y = 10'd1023;
+    joystick2_x = 10'd0;
+    joystick2_y = 10'd0;
+    do_refresh_tick;
+
+    // inside square 2
+    x = 10'd10;
+    y = 10'd10;
+    #1;
+    $display("Square 2 inside rgb = %h (expect 0F0)", rgb);
+
+    // inside square 1
+    x = 10'd600;
+    y = 10'd440;
+    #1;
+    $display("Square 1 inside rgb = %h (expect 0FF)", rgb);
+
+    // background
+    x = 10'd300;
+    y = 10'd200;
+    #1;
+    $display("Background rgb = %h (expect F00)", rgb);   
 
     // ----Test blank screen----
     video_on = 0;
