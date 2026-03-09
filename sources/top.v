@@ -43,6 +43,7 @@ module top(
   wire [9:0] data1_y, data1_x;      // JSTK 1 positions (JA)
   wire [9:0] data2_y, data2_x;      // JSTK 2 positions (JB)
 
+  // TODO: possibly swap the x and y
   assign data1_y = {jstkData1[25:24], jstkData1[39:32]}; // 2 bits from the 2nd byte + 8 bits from the 1st byte
   assign data1_x = {jstkData1[9:8], jstkData1[23:16]};  // 2 bits from the 4th byte + 8 bits from the 3rd byte
 
@@ -67,8 +68,10 @@ module top(
     .video_on(w_video_on), 
     .x(w_x), 
     .y(w_y),
-    .joystick_x(data1_x),
-    .joystick_y(data1_y),
+    .joystick1_x(data1_x),
+    .joystick1_y(data1_y),
+    .joystick2_x(data2_x),
+    .joystick2_y(data2_y),
     .rgb(rgb_next)
   );
     
