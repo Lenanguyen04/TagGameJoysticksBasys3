@@ -35,11 +35,12 @@ module top(
     wire [39:0] jstkData1;
     wire [39:0] jstkData2;
     
-    // Coordinates and button
+    // Coordinates and buttons
     wire [9:0] joy1_x;
     wire [9:0] joy1_y;
     wire [9:0] joy2_x;
     wire [9:0] joy2_y;
+    wire joy1_btn;
     wire joy2_btn;
 
     // Shield parameters
@@ -47,8 +48,12 @@ module top(
     wire shield_active;
     wire flash_toggle;
     wire [15:0] shield_led;
+
+    // Final LED debug bus
+    reg [15:0] led_reg;
+    assign led = led_reg;
     
-    PmodJSTK_Dual_hw joysticks (    // Gets data from the joysticks
+    PmodJSTK_Dual_hw joysticks (
         .CLK(clk_100MHz),
         .RST(reset),
 
@@ -66,15 +71,16 @@ module top(
         .DOUT2(jstkData2)
     );
 
-    // decode the coordinates and button
+    // Decode coordinates
     assign joy1_y = {jstkData1[25:24], jstkData1[39:32]};
     assign joy1_x = {jstkData1[9:8],   jstkData1[23:16]};
 
     assign joy2_y = {jstkData2[25:24], jstkData2[39:32]};
     assign joy2_x = {jstkData2[9:8],   jstkData2[23:16]};
 
-    assign joy2_btn = jstkData2[1]; // TODO: possibly 0
-    assign led = shield_led;
+    // Confirmed button bit
+    assign joy1_btn = jstkData1[1];
+    assign joy2_btn = jstkData2[1];
 
     ClkDiv_100Hz shield_clk (
         .CLK(clk_100MHz),
@@ -85,7 +91,7 @@ module top(
     shield_controller shield (
         .clk_100hz(clk_100hz),
         .reset(reset),
-        .button_pressed(joy2_btn),
+        .button_pressed(joy2_btn_pulse),
         .shield_active(shield_active),
         .flash_toggle(flash_toggle),
         .led(shield_led)
@@ -117,11 +123,36 @@ module top(
         .rgb(rgb_next)
     );
 
+    reg joy2_btn_d;
+    wire joy2_btn_pulse;
+    
+    always @(posedge clk_100hz or posedge reset) begin
+        if (reset)
+            joy2_btn_d <= 1'b0;
+        else
+            joy2_btn_d <= joy2_btn;
+    end
+    
+    assign joy2_btn_pulse = joy2_btn & ~joy2_btn_d;
+
     always @(posedge clk_100MHz) begin
         if (w_p_tick)
             rgb_reg <= rgb_next;
     end
 
     assign rgb = rgb_reg;
+
+    // Cleaner LED debug
+    always @* begin
+        led_reg = 16'h0000;
+
+        led_reg[0] = joy1_btn;
+        led_reg[1] = joy2_btn;
+        led_reg[2] = shield_active;
+        led_reg[3] = flash_toggle;
+
+        // show upper part of shield status bar too
+        led_reg[15:4] = shield_led[15:4];
+    end
 
 endmodule
