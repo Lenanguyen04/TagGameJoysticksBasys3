@@ -75,7 +75,7 @@ module spiCtrl(
 			reg [2:0] byteCnt = 3'd0;					// Number bits read/written
 			parameter byteEndVal = 3'd5;				// Number of bytes to send/receive
 			reg [39:0] tmpSR = 40'h0000000000;		// Temporary shift register to
-																// accumulate all five data bytes
+																// accumulate all five data bytes tmpSR = {Byte1, Byte2, Byte3, Byte4, Byte5}
 
 	// ===========================================================================
 	// 										Implementation
