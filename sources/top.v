@@ -25,20 +25,30 @@ module top(
     output wire [15:0] led
 );
 
+    // ----- Parameters for VGA -----
     wire w_video_on, w_p_tick;
     wire [9:0] w_x, w_y;
     reg  [11:0] rgb_reg;
     wire [11:0] rgb_next;
 
+    // ----- Parameters for joysticks -----
     wire [39:0] jstkData1;
     wire [39:0] jstkData2;
-
+    
+    // Coordinates and button
     wire [9:0] joy1_x;
     wire [9:0] joy1_y;
     wire [9:0] joy2_x;
     wire [9:0] joy2_y;
+    wire joy2_btn;
 
-    PmodJSTK_Dual_hw joysticks (
+    // Shield parameters
+    wire clk_100hz;
+    wire shield_active;
+    wire flash_toggle;
+    wire [15:0] shield_led;
+    
+    PmodJSTK_Dual_hw joysticks (    // Gets data from the joysticks
         .CLK(clk_100MHz),
         .RST(reset),
 
@@ -56,19 +66,29 @@ module top(
         .DOUT2(jstkData2)
     );
 
-    // same decode convention as your tested dual joystick setup
+    // decode the coordinates and button
     assign joy1_y = {jstkData1[25:24], jstkData1[39:32]};
     assign joy1_x = {jstkData1[9:8],   jstkData1[23:16]};
 
     assign joy2_y = {jstkData2[25:24], jstkData2[39:32]};
     assign joy2_x = {jstkData2[9:8],   jstkData2[23:16]};
 
-    dual_joystick_led_debug led_dbg (
-        .joy1_x(joy1_x),
-        .joy1_y(joy1_y),
-        .joy2_x(joy2_x),
-        .joy2_y(joy2_y),
-        .led(led)
+    assign joy2_btn = jstkData2[1]; // TODO: possibly 0
+    assign led = shield_led;
+
+    ClkDiv_100Hz shield_clk (
+        .CLK(clk_100MHz),
+        .RST(reset),
+        .CLKOUT(clk_100hz)
+    );
+
+    shield_controller shield (
+        .clk_100hz(clk_100hz),
+        .reset(reset),
+        .button_pressed(joy2_btn),
+        .shield_active(shield_active),
+        .flash_toggle(flash_toggle),
+        .led(shield_led)
     );
 
     vga_controller vc (
@@ -90,6 +110,8 @@ module top(
         .joystick1_y(joy1_y),
         .joystick2_x(joy2_x),
         .joystick2_y(joy2_y),
+        .shield_active(shield_active),
+        .flash_toggle(flash_toggle),
         .x(w_x),
         .y(w_y),
         .rgb(rgb_next)
