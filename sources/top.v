@@ -22,7 +22,7 @@ module top(
     output wire SS2,
 
     // LEDs
-    output wire [15:0] led
+    output wire [15:0] led,
 
     // Seven Segment Display
     output wire [3:0] anode_activate,
@@ -99,7 +99,7 @@ module top(
         .led(shield_led)
     );
 
-    countdown_timer_7seg #(
+    countdown_timer_ssd #(
         .START_SECONDS(20)
     ) round_timer (
         .clk(clk_100MHz),
