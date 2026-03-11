@@ -12,10 +12,13 @@ module pixel_generation(
 
     input  wire        shield_active,
     input  wire        flash_toggle,
+    input  wire        time_expired,
 
     input  wire [9:0]  x,
     input  wire [9:0]  y,
-    output reg  [11:0] rgb
+    output reg  [11:0] rgb,
+    output reg         game_over,
+    output reg         winner
 );
 
     localparam integer X_MAX = 639;
@@ -137,7 +140,11 @@ module pixel_generation(
 
                     if (collide && !shield_active) begin
                         game_over <= 1'b1;
-                        winner    <= 1'b0; // player 1 is the tagger for now
+                        winner    <= 1'b0; // yellow/tagger wins
+                    end
+                    else if (time_expired) begin
+                        game_over <= 1'b1;
+                        winner    <= 1'b1; // green/runner wins
                     end
                 end
             end

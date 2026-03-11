@@ -23,7 +23,15 @@ module top(
 
     // LEDs
     output wire [15:0] led
+
+    // Seven Segment Display
+    output wire [3:0] anode_activate,
+    output wire [6:0] LED_out
 );
+
+    wire timer_expired;
+    wire game_over;
+    wire winner;
 
     // ----- Parameters for VGA -----
     wire w_video_on, w_p_tick;
@@ -91,6 +99,17 @@ module top(
         .led(shield_led)
     );
 
+    countdown_timer_7seg #(
+        .START_SECONDS(20)
+    ) round_timer (
+        .clk(clk_100MHz),
+        .reset(reset),
+        .enable(~game_over),
+        .anode_activate(anode_activate),
+        .LED_out(LED_out),
+        .expired(timer_expired)
+    );
+
     vga_controller vc (
         .clk(clk_100MHz),
         .reset(reset),
@@ -112,9 +131,12 @@ module top(
         .joystick2_y(joy2_y),
         .shield_active(shield_active),
         .flash_toggle(flash_toggle),
+        .time_expired(timer_expired),
         .x(w_x),
         .y(w_y),
-        .rgb(rgb_next)
+        .rgb(rgb_next),
+        .game_over(game_over),
+        .winner(winner)
     );
 
     always @(posedge clk_100MHz) begin
