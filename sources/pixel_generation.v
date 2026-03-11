@@ -15,6 +15,8 @@ module pixel_generation(
     input  wire        p2_shield_active,
     input  wire        p2_flash_toggle,
 
+    input  wire        tag_switch,
+
     input  wire [9:0]  x,
     input  wire [9:0]  y,
     output reg  [11:0] rgb
@@ -27,8 +29,6 @@ module pixel_generation(
 
     localparam [9:0] JOY_CENTER = 10'd512;
     localparam [9:0] JOY_DEAD   = 10'd80;
-
-    localparam integer TAG_SWAP_FRAMES = 300; // ~5 sec @ 60 Hz
 
     localparam [11:0] BG_RGB      = 12'h00F;
     localparam [11:0] P1_RGB      = 12'h0FF;
@@ -71,7 +71,6 @@ module pixel_generation(
     reg game_over;
     reg winner;          // 0 = player 1 wins, 1 = player 2 wins
     reg current_tagger;  // 0 = p1 tagger, 1 = p2 tagger
-    reg [8:0] tag_timer_reg;
 
     // ------------------------------------------------------------
     // Player boundaries
@@ -217,7 +216,6 @@ module pixel_generation(
             game_over      <= 1'b0;
             winner         <= 1'b0;
             current_tagger <= 1'b0;
-            tag_timer_reg  <= 9'd0;
         end
         else begin
             x1_delta_reg <= x1_delta_next;
@@ -225,15 +223,12 @@ module pixel_generation(
             x2_delta_reg <= x2_delta_next;
             y2_delta_reg <= y2_delta_next;
 
+            // switch tagger whenever countdown timer expires
+            if (!game_over && tag_switch) begin
+                current_tagger <= ~current_tagger;
+            end
+            
             if (refresh_tick && !game_over) begin
-                if (tag_timer_reg == TAG_SWAP_FRAMES - 1) begin
-                    tag_timer_reg  <= 9'd0;
-                    current_tagger <= ~current_tagger;
-                end
-                else begin
-                    tag_timer_reg <= tag_timer_reg + 1'b1;
-                end
-
                 // Move player 1
                 if (p1_x_next < 0)
                     p1_x_reg <= 10'd0;
