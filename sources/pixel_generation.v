@@ -30,14 +30,14 @@ module pixel_generation(
     localparam [9:0] JOY_CENTER = 10'd512;
     localparam [9:0] JOY_DEAD   = 10'd80;
 
-    localparam [11:0] BG_RGB      = 12'h00F;
-    localparam [11:0] P1_RGB      = 12'h0FF;
-    localparam [11:0] P2_RGB      = 12'h0F0;
+    localparam [11:0] BG_RGB      = 12'h333;
+    localparam [11:0] P1_RGB      = 12'h00F;
+    localparam [11:0] P2_RGB      = 12'hF00;
     localparam [11:0] TAGGER_RGB  = 12'hFFF;
-    localparam [11:0] SHIELD1_RGB = 12'hF0F; // p1 bubble
-    localparam [11:0] SHIELD2_RGB = 12'hF0F; // p2 bubble
-    localparam [11:0] P1_WIN_RGB  = 12'h0FF;
-    localparam [11:0] P2_WIN_RGB  = 12'h0F0;
+    localparam [11:0] SHIELD1_RGB = 12'h80F; // p1 bubble
+    localparam [11:0] SHIELD2_RGB = 12'hF08; // p2 bubble
+    localparam [11:0] P1_WIN_RGB  = 12'h00F;
+    localparam [11:0] P2_WIN_RGB  = 12'hF00;
 
     localparam integer X_LIM = X_MAX - (SQUARE_SIZE - 1);
     localparam integer Y_LIM = Y_MAX - (SQUARE_SIZE - 1);
