@@ -171,7 +171,7 @@ module top(
     );
 
     countdown_timer_ssd #(
-        .START_SECONDS(10)
+        .START_SECONDS(5)
     ) timer_inst (
         .clk(clk_100MHz),
         .reset(reset),
