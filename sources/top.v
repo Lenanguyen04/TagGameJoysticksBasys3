@@ -25,17 +25,17 @@ module top(
     output wire [15:0] led
 );
 
-    // ----- Parameters for VGA -----
+    // ----- VGA -----
     wire w_video_on, w_p_tick;
     wire [9:0] w_x, w_y;
     reg  [11:0] rgb_reg;
     wire [11:0] rgb_next;
 
-    // ----- Parameters for joysticks -----
+    // ----- Joystick packets -----
     wire [39:0] jstkData1;
     wire [39:0] jstkData2;
-    
-    // Coordinates and buttons
+
+    // ----- Decoded joystick values -----
     wire [9:0] joy1_x;
     wire [9:0] joy1_y;
     wire [9:0] joy2_x;
@@ -43,16 +43,27 @@ module top(
     wire joy1_btn;
     wire joy2_btn;
 
-    // Shield parameters
+    // ----- 100 Hz shield clock -----
     wire clk_100hz;
-    wire shield_active;
-    wire flash_toggle;
-    wire [15:0] shield_led;
 
-    // Final LED debug bus
-    reg [15:0] led_reg;
-    assign led = led_reg;
-    
+    // ----- Button pulses -----
+    reg joy1_btn_d;
+    reg joy2_btn_d;
+    wire joy1_btn_pulse;
+    wire joy2_btn_pulse;
+
+    // ----- Shield controller outputs -----
+    wire p1_shield_active;
+    wire p1_flash_toggle;
+    wire [7:0] p1_shield_led_bank;
+
+    wire p2_shield_active;
+    wire p2_flash_toggle;
+    wire [7:0] p2_shield_led_bank;
+
+    // ----------------------------------------------------------------
+    // Dual joystick reader
+    // ----------------------------------------------------------------
     PmodJSTK_Dual_hw joysticks (
         .CLK(clk_100MHz),
         .RST(reset),
@@ -82,21 +93,65 @@ module top(
     assign joy1_btn = jstkData1[1];
     assign joy2_btn = jstkData2[1];
 
+    // Shield timing clock
     ClkDiv_100Hz shield_clk (
         .CLK(clk_100MHz),
         .RST(reset),
         .CLKOUT(clk_100hz)
     );
 
-    shield_controller shield (
+    // Button edge detect at 100 Hz
+    always @(posedge clk_100hz or posedge reset) begin
+        if (reset) begin
+            joy1_btn_d <= 1'b0;
+            joy2_btn_d <= 1'b0;
+        end
+        else begin
+            joy1_btn_d <= joy1_btn;
+            joy2_btn_d <= joy2_btn;
+        end
+    end
+
+    assign joy1_btn_pulse = joy1_btn & ~joy1_btn_d;
+    assign joy2_btn_pulse = joy2_btn & ~joy2_btn_d;
+
+    // ----------------------------------------------------------------
+    // Player 1 shield controller (upper LED bank style)
+    // ----------------------------------------------------------------
+    shield_controller #(
+        .MIRROR(0)
+    ) shield_p1 (
         .clk_100hz(clk_100hz),
         .reset(reset),
-        .button_pressed(joy2_btn_pulse),
-        .shield_active(shield_active),
-        .flash_toggle(flash_toggle),
-        .led(shield_led)
+        .button_level(joy1_btn),
+        .button_pressed(joy1_btn_pulse),
+        .shield_active(p1_shield_active),
+        .flash_toggle(p1_flash_toggle),
+        .led_bank(p1_shield_led_bank)
     );
 
+    // ----------------------------------------------------------------
+    // Player 2 shield controller (lower LED bank mirrored style)
+    // ----------------------------------------------------------------
+    shield_controller #(
+        .MIRROR(1)
+    ) shield_p2 (
+        .clk_100hz(clk_100hz),
+        .reset(reset),
+        .button_level(joy2_btn),
+        .button_pressed(joy2_btn_pulse),
+        .shield_active(p2_shield_active),
+        .flash_toggle(p2_flash_toggle),
+        .led_bank(p2_shield_led_bank)
+    );
+
+    // LED mapping
+    assign led[15:8] = p1_shield_led_bank;
+    assign led[7:0]  = p2_shield_led_bank;
+
+    // ----------------------------------------------------------------
+    // VGA
+    // ----------------------------------------------------------------
     vga_controller vc (
         .clk(clk_100MHz),
         .reset(reset),
@@ -112,28 +167,21 @@ module top(
         .clk(clk_100MHz),
         .reset(reset),
         .video_on(w_video_on),
+
         .joystick1_x(joy1_x),
         .joystick1_y(joy1_y),
         .joystick2_x(joy2_x),
         .joystick2_y(joy2_y),
-        .shield_active(shield_active),
-        .flash_toggle(flash_toggle),
+
+        .p1_shield_active(p1_shield_active),
+        .p1_flash_toggle(p1_flash_toggle),
+        .p2_shield_active(p2_shield_active),
+        .p2_flash_toggle(p2_flash_toggle),
+
         .x(w_x),
         .y(w_y),
         .rgb(rgb_next)
     );
-
-    reg joy2_btn_d;
-    wire joy2_btn_pulse;
-    
-    always @(posedge clk_100hz or posedge reset) begin
-        if (reset)
-            joy2_btn_d <= 1'b0;
-        else
-            joy2_btn_d <= joy2_btn;
-    end
-    
-    assign joy2_btn_pulse = joy2_btn & ~joy2_btn_d;
 
     always @(posedge clk_100MHz) begin
         if (w_p_tick)
@@ -141,18 +189,5 @@ module top(
     end
 
     assign rgb = rgb_reg;
-
-    // Cleaner LED debug
-    always @* begin
-        led_reg = 16'h0000;
-
-        led_reg[0] = joy1_btn;
-        led_reg[1] = joy2_btn;
-        led_reg[2] = shield_active;
-        led_reg[3] = flash_toggle;
-
-        // show upper part of shield status bar too
-        led_reg[15:4] = shield_led[15:4];
-    end
 
 endmodule
