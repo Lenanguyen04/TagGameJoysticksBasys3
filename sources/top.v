@@ -22,9 +22,16 @@ module top(
     output wire SS2,
 
     // LEDs
-    output wire [15:0] led
+    output wire [15:0] led,
+
+    // Seven Segement Display
+    output wire [3:0] anode_activate,
+    output wire [6:0] LED_out
 );
 
+    wire tag_switch_pulse;
+    wire timer_expired;
+    
     // ----- VGA -----
     wire w_video_on, w_p_tick;
     wire [9:0] w_x, w_y;
@@ -163,6 +170,18 @@ module top(
         .y(w_y)
     );
 
+    countdown_timer_ssd #(
+        .START_SECONDS(10)
+    ) timer_inst (
+        .clk(clk_100MHz),
+        .reset(reset),
+        .enable(1'b1),              // or !game_over if you expose that
+        .anode_activate(anode_activate),
+        .LED_out(LED_out),
+        .expired(timer_expired),
+        .swap_pulse(tag_switch_pulse)
+    );
+    
     pixel_generation pg (
         .clk(clk_100MHz),
         .reset(reset),
@@ -177,6 +196,8 @@ module top(
         .p1_flash_toggle(p1_flash_toggle),
         .p2_shield_active(p2_shield_active),
         .p2_flash_toggle(p2_flash_toggle),
+
+        .tag_switch(tag_switch),
 
         .x(w_x),
         .y(w_y),
