@@ -197,7 +197,7 @@ module top(
         .p2_shield_active(p2_shield_active),
         .p2_flash_toggle(p2_flash_toggle),
 
-        .tag_switch(tag_switch),
+        .tag_switch(tag_switch_pulse),
 
         .x(w_x),
         .y(w_y),
