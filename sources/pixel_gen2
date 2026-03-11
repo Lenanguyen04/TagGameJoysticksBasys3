@@ -10,8 +10,12 @@ module pixel_generation(
     input  wire [9:0]  joystick2_x,
     input  wire [9:0]  joystick2_y,
 
-    input  wire        shield_active,
-    input  wire        flash_toggle,
+    input  wire        p1_shield_active,
+    input  wire        p1_flash_toggle,
+    input  wire        p2_shield_active,
+    input  wire        p2_flash_toggle,
+
+    input  wire        tag_switch,
 
     input  wire [9:0]  x,
     input  wire [9:0]  y,
@@ -21,30 +25,35 @@ module pixel_generation(
     localparam integer X_MAX = 639;
     localparam integer Y_MAX = 479;
     localparam integer SQUARE_SIZE = 64;
+    localparam integer SHIELD_PAD  = 8;
 
-    // Visible shield bubble thickness / radius
-    localparam integer SHIELD_PAD = 8;
-
-    // Joystick tuning
     localparam [9:0] JOY_CENTER = 10'd512;
     localparam [9:0] JOY_DEAD   = 10'd80;
 
-    // Tagger swap timer: 5 seconds at ~60 FPS = 300 frames
-    localparam integer TAG_SWAP_FRAMES = 300;
+    // Colors (BGR-ish on your VGA setup)
+    localparam [11:0] BG_RGB         = 12'h333; // dark gray
+    localparam [11:0] BG_GRID_RGB    = 12'h444; // slightly lighter gray
+    localparam [11:0] MIDLINE_RGB    = 12'h555;
 
-    // Colors
-    localparam [11:0] BG_RGB         = 12'h00F; // blue background
-    localparam [11:0] P1_RGB         = 12'h0FF; // player 1
-    localparam [11:0] P2_RGB         = 12'h0F0; // player 2
-    localparam [11:0] TAGGER_RGB     = 12'hFFF; // white outline for current tagger
-    localparam [11:0] SHIELD_RGB     = 12'hF0F; // magenta shield bubble
-    localparam [11:0] P1_WIN_RGB     = 12'h0FF;
-    localparam [11:0] P2_WIN_RGB     = 12'h0F0;
+    localparam [11:0] P1_RGB         = 12'h00F; // red on your setup
+    localparam [11:0] P1_ALT_RGB     = 12'h44F; // lighter red accent
+
+    localparam [11:0] P2_RGB         = 12'hF00; // blue on your setup
+    localparam [11:0] P2_ALT_RGB     = 12'hF66; // lighter blue accent
+
+    localparam [11:0] TAGGER_RGB_0   = 12'hFFF;
+    localparam [11:0] TAGGER_RGB_1   = 12'hFFB;
+
+    localparam [11:0] SHIELD1_RGB    = 12'hF0F;
+    localparam [11:0] SHIELD2_RGB    = 12'hFF0;
+
+    localparam [11:0] P1_WIN_RGB     = 12'h00F;
+    localparam [11:0] P2_WIN_RGB     = 12'hF00;
+    localparam [11:0] IMPACT_RGB     = 12'hFFF;
 
     localparam integer X_LIM = X_MAX - (SQUARE_SIZE - 1);
     localparam integer Y_LIM = Y_MAX - (SQUARE_SIZE - 1);
 
-    // ~60 Hz frame tick
     wire refresh_tick;
     assign refresh_tick = ((y == 10'd481) && (x == 10'd0)) ? 1'b1 : 1'b0;
 
@@ -54,7 +63,6 @@ module pixel_generation(
     reg [9:0] p1_x_reg, p1_y_reg;
     reg [9:0] p2_x_reg, p2_y_reg;
 
-    // Signed velocities
     reg signed [10:0] x1_delta_reg, y1_delta_reg;
     reg signed [10:0] x2_delta_reg, y2_delta_reg;
 
@@ -70,16 +78,19 @@ module pixel_generation(
     assign p2_y_next = $signed({1'b0, p2_y_reg}) + y2_delta_reg;
 
     // ------------------------------------------------------------
-    // Tag / game state
+    // Game state
     // ------------------------------------------------------------
     reg game_over;
     reg winner;          // 0 = player 1 wins, 1 = player 2 wins
-    reg current_tagger;  // 0 = player 1 is tagger, 1 = player 2 is tagger
+    reg current_tagger;  // 0 = p1 tagger, 1 = p2 tagger
 
-    reg [8:0] tag_timer_reg;   // enough for 0..300
+    // animation / impact
+    reg [7:0] frame_anim_reg;
+    reg [7:0] game_anim_reg;
+    reg [9:0] impact_x_reg, impact_y_reg;
 
     // ------------------------------------------------------------
-    // Square boundaries
+    // Player boundaries
     // ------------------------------------------------------------
     wire [9:0] p1_x_l = p1_x_reg;
     wire [9:0] p1_y_t = p1_y_reg;
@@ -91,6 +102,23 @@ module pixel_generation(
     wire [9:0] p2_x_r = p2_x_l + SQUARE_SIZE - 1;
     wire [9:0] p2_y_b = p2_y_t + SQUARE_SIZE - 1;
 
+    // Safe 1-pixel border bounds
+    wire [9:0] p1_bd_x_l = (p1_x_l == 0)      ? 10'd0      : (p1_x_l - 1'b1);
+    wire [9:0] p1_bd_y_t = (p1_y_t == 0)      ? 10'd0      : (p1_y_t - 1'b1);
+    wire [9:0] p1_bd_x_r = (p1_x_r >= X_MAX)  ? X_MAX[9:0] : (p1_x_r + 1'b1);
+    wire [9:0] p1_bd_y_b = (p1_y_b >= Y_MAX)  ? Y_MAX[9:0] : (p1_y_b + 1'b1);
+
+    wire [9:0] p2_bd_x_l = (p2_x_l == 0)      ? 10'd0      : (p2_x_l - 1'b1);
+    wire [9:0] p2_bd_y_t = (p2_y_t == 0)      ? 10'd0      : (p2_y_t - 1'b1);
+    wire [9:0] p2_bd_x_r = (p2_x_r >= X_MAX)  ? X_MAX[9:0] : (p2_x_r + 1'b1);
+    wire [9:0] p2_bd_y_b = (p2_y_b >= Y_MAX)  ? Y_MAX[9:0] : (p2_y_b + 1'b1);
+
+    // Shield bubble around player 1
+    wire [9:0] p1_sh_x_l = (p1_x_l > SHIELD_PAD) ? (p1_x_l - SHIELD_PAD) : 10'd0;
+    wire [9:0] p1_sh_y_t = (p1_y_t > SHIELD_PAD) ? (p1_y_t - SHIELD_PAD) : 10'd0;
+    wire [9:0] p1_sh_x_r = (p1_x_r + SHIELD_PAD < X_MAX) ? (p1_x_r + SHIELD_PAD) : X_MAX[9:0];
+    wire [9:0] p1_sh_y_b = (p1_y_b + SHIELD_PAD < Y_MAX) ? (p1_y_b + SHIELD_PAD) : Y_MAX[9:0];
+
     // Shield bubble around player 2
     wire [9:0] p2_sh_x_l = (p2_x_l > SHIELD_PAD) ? (p2_x_l - SHIELD_PAD) : 10'd0;
     wire [9:0] p2_sh_y_t = (p2_y_t > SHIELD_PAD) ? (p2_y_t - SHIELD_PAD) : 10'd0;
@@ -98,26 +126,25 @@ module pixel_generation(
     wire [9:0] p2_sh_y_b = (p2_y_b + SHIELD_PAD < Y_MAX) ? (p2_y_b + SHIELD_PAD) : Y_MAX[9:0];
 
     // ------------------------------------------------------------
-    // Collision detection
+    // Collision
     // ------------------------------------------------------------
     wire collide;
     assign collide = (p1_x_l <= p2_x_r) && (p1_x_r >= p2_x_l) &&
                      (p1_y_t <= p2_y_b) && (p1_y_b >= p2_y_t);
 
-    // Player 2 shield only matters when player 2 is the runner
+    // The current runner is protected only if THEIR shield is active
     wire runner_protected;
-    assign runner_protected = (current_tagger == 1'b0) && shield_active;
+    assign runner_protected =
+        ((current_tagger == 1'b0) && p2_shield_active) ||
+        ((current_tagger == 1'b1) && p1_shield_active);
 
     // ------------------------------------------------------------
-    // Joystick magnitude -> speed mapping
-    // 0 outside deadzone
-    // then 1,2,3,4 based on distance from center
+    // Joystick magnitude -> speed
     // ------------------------------------------------------------
     reg [9:0] j1x_mag, j1y_mag, j2x_mag, j2y_mag;
     reg [2:0] j1x_speed, j1y_speed, j2x_speed, j2y_speed;
 
     always @* begin
-        // magnitudes from center
         if (joystick1_x >= JOY_CENTER) j1x_mag = joystick1_x - JOY_CENTER;
         else                           j1x_mag = JOY_CENTER - joystick1_x;
 
@@ -130,13 +157,11 @@ module pixel_generation(
         if (joystick2_y >= JOY_CENTER) j2y_mag = joystick2_y - JOY_CENTER;
         else                           j2y_mag = JOY_CENTER - joystick2_y;
 
-        // default speeds
         j1x_speed = 3'd0;
         j1y_speed = 3'd0;
         j2x_speed = 3'd0;
         j2y_speed = 3'd0;
 
-        // speed levels: 0,1,2,3,4
         if (j1x_mag > JOY_DEAD + 10'd250)      j1x_speed = 3'd4;
         else if (j1x_mag > JOY_DEAD + 10'd180) j1x_speed = 3'd3;
         else if (j1x_mag > JOY_DEAD + 10'd110) j1x_speed = 3'd2;
@@ -159,27 +184,26 @@ module pixel_generation(
     end
 
     // ------------------------------------------------------------
-    // Velocity control from joystick direction + magnitude
+    // Velocity control
     // ------------------------------------------------------------
     always @* begin
-        // defaults
         x1_delta_next = 11'sd0;
         y1_delta_next = 11'sd0;
         x2_delta_next = 11'sd0;
         y2_delta_next = 11'sd0;
 
-        // Player 1 normal orientation
+        // Player 1 normal
         if (joystick1_x > JOY_CENTER + JOY_DEAD)
-            x1_delta_next =  $signed({8'd0, j1x_speed});   // +1..+4
+            x1_delta_next =  $signed({8'd0, j1x_speed});
         else if (joystick1_x < JOY_CENTER - JOY_DEAD)
-            x1_delta_next = -$signed({8'd0, j1x_speed});   // -1..-4
+            x1_delta_next = -$signed({8'd0, j1x_speed});
 
         if (joystick1_y > JOY_CENTER + JOY_DEAD)
             y1_delta_next =  $signed({8'd0, j1y_speed});
         else if (joystick1_y < JOY_CENTER - JOY_DEAD)
             y1_delta_next = -$signed({8'd0, j1y_speed});
 
-        // Player 2 mirrored because your hardware/test setup needed that
+        // Player 2 mirrored to match current hardware orientation
         if (joystick2_x > JOY_CENTER + JOY_DEAD)
             x2_delta_next = -$signed({8'd0, j2x_speed});
         else if (joystick2_x < JOY_CENTER - JOY_DEAD)
@@ -192,7 +216,7 @@ module pixel_generation(
     end
 
     // ------------------------------------------------------------
-    // Game state / position update
+    // Game update
     // ------------------------------------------------------------
     always @(posedge clk or posedge reset) begin
         if (reset) begin
@@ -208,8 +232,12 @@ module pixel_generation(
 
             game_over      <= 1'b0;
             winner         <= 1'b0;
-            current_tagger <= 1'b0;   // player 1 starts as tagger
-            tag_timer_reg  <= 9'd0;
+            current_tagger <= 1'b0;
+
+            frame_anim_reg <= 8'd0;
+            game_anim_reg  <= 8'd0;
+            impact_x_reg   <= 10'd320;
+            impact_y_reg   <= 10'd240;
         end
         else begin
             x1_delta_reg <= x1_delta_next;
@@ -217,50 +245,55 @@ module pixel_generation(
             x2_delta_reg <= x2_delta_next;
             y2_delta_reg <= y2_delta_next;
 
-            if (refresh_tick && !game_over) begin
-                // update tagger timer
-                if (tag_timer_reg == TAG_SWAP_FRAMES - 1) begin
-                    tag_timer_reg  <= 9'd0;
-                    current_tagger <= ~current_tagger;
+            // keep her timing behavior: external pulse switches tagger
+            if (!game_over && tag_switch) begin
+                current_tagger <= ~current_tagger;
+            end
+
+            if (refresh_tick) begin
+                frame_anim_reg <= frame_anim_reg + 8'd1;
+
+                if (game_over) begin
+                    game_anim_reg <= game_anim_reg + 8'd1;
                 end
                 else begin
-                    tag_timer_reg <= tag_timer_reg + 1'b1;
-                end
+                    // Move player 1
+                    if (p1_x_next < 0)
+                        p1_x_reg <= 10'd0;
+                    else if (p1_x_next > X_LIM)
+                        p1_x_reg <= X_LIM[9:0];
+                    else
+                        p1_x_reg <= p1_x_next[9:0];
 
-                // move player 1 with clamping
-                if (p1_x_next < 0)
-                    p1_x_reg <= 10'd0;
-                else if (p1_x_next > X_LIM)
-                    p1_x_reg <= X_LIM[9:0];
-                else
-                    p1_x_reg <= p1_x_next[9:0];
+                    if (p1_y_next < 0)
+                        p1_y_reg <= 10'd0;
+                    else if (p1_y_next > Y_LIM)
+                        p1_y_reg <= Y_LIM[9:0];
+                    else
+                        p1_y_reg <= p1_y_next[9:0];
 
-                if (p1_y_next < 0)
-                    p1_y_reg <= 10'd0;
-                else if (p1_y_next > Y_LIM)
-                    p1_y_reg <= Y_LIM[9:0];
-                else
-                    p1_y_reg <= p1_y_next[9:0];
+                    // Move player 2
+                    if (p2_x_next < 0)
+                        p2_x_reg <= 10'd0;
+                    else if (p2_x_next > X_LIM)
+                        p2_x_reg <= X_LIM[9:0];
+                    else
+                        p2_x_reg <= p2_x_next[9:0];
 
-                // move player 2 with clamping
-                if (p2_x_next < 0)
-                    p2_x_reg <= 10'd0;
-                else if (p2_x_next > X_LIM)
-                    p2_x_reg <= X_LIM[9:0];
-                else
-                    p2_x_reg <= p2_x_next[9:0];
+                    if (p2_y_next < 0)
+                        p2_y_reg <= 10'd0;
+                    else if (p2_y_next > Y_LIM)
+                        p2_y_reg <= Y_LIM[9:0];
+                    else
+                        p2_y_reg <= p2_y_next[9:0];
 
-                if (p2_y_next < 0)
-                    p2_y_reg <= 10'd0;
-                else if (p2_y_next > Y_LIM)
-                    p2_y_reg <= Y_LIM[9:0];
-                else
-                    p2_y_reg <= p2_y_next[9:0];
-
-                // tag logic
-                if (collide && !runner_protected) begin
-                    game_over <= 1'b1;
-                    winner    <= current_tagger;
+                    if (collide && !runner_protected) begin
+                        game_over     <= 1'b1;
+                        winner        <= current_tagger;
+                        game_anim_reg <= 8'd0;
+                        impact_x_reg  <= (p1_x_reg + p2_x_reg) >> 1;
+                        impact_y_reg  <= (p1_y_reg + p2_y_reg) >> 1;
+                    end
                 end
             end
         end
@@ -271,7 +304,7 @@ module pixel_generation(
     // ------------------------------------------------------------
     wire p1_on, p2_on;
     wire p1_border_on, p2_border_on;
-    wire p2_shield_on;
+    wire p1_shield_on, p2_shield_on;
 
     assign p1_on = (p1_x_l <= x) && (x <= p1_x_r) &&
                    (p1_y_t <= y) && (y <= p1_y_b);
@@ -279,52 +312,134 @@ module pixel_generation(
     assign p2_on = (p2_x_l <= x) && (x <= p2_x_r) &&
                    (p2_y_t <= y) && (y <= p2_y_b);
 
-    // 1-pixel outline for tagger visibility
-    assign p1_border_on = (x >= p1_x_l-1) && (x <= p1_x_r+1) &&
-                          (y >= p1_y_t-1) && (y <= p1_y_b+1) &&
+    assign p1_border_on = (x >= p1_bd_x_l) && (x <= p1_bd_x_r) &&
+                          (y >= p1_bd_y_t) && (y <= p1_bd_y_b) &&
                           !p1_on;
 
-    assign p2_border_on = (x >= p2_x_l-1) && (x <= p2_x_r+1) &&
-                          (y >= p2_y_t-1) && (y <= p2_y_b+1) &&
+    assign p2_border_on = (x >= p2_bd_x_l) && (x <= p2_bd_x_r) &&
+                          (y >= p2_bd_y_t) && (y <= p2_bd_y_b) &&
                           !p2_on;
 
-    // rectangular shield bubble around player 2
-    assign p2_shield_on = (x >= p2_sh_x_l) && (x <= p2_sh_x_r) &&
-                          (y >= p2_sh_y_t) && (y <= p2_sh_y_b) &&
-                          !p2_on &&
-                          !((x > p2_sh_x_l+1) && (x < p2_sh_x_r-1) &&
-                            (y > p2_sh_y_t+1) && (y < p2_sh_y_b-1));
+    // animated dashed shield borders
+    wire p1_shield_box, p2_shield_box;
+    wire p1_shield_inner, p2_shield_inner;
+    wire p1_shield_dash, p2_shield_dash;
+
+    assign p1_shield_box =
+        (x >= p1_sh_x_l) && (x <= p1_sh_x_r) &&
+        (y >= p1_sh_y_t) && (y <= p1_sh_y_b);
+
+    assign p1_shield_inner =
+        (x > p1_sh_x_l+1) && (x < p1_sh_x_r-1) &&
+        (y > p1_sh_y_t+1) && (y < p1_sh_y_b-1);
+
+    assign p1_shield_dash = (x[2] ^ y[2] ^ frame_anim_reg[2]);
+
+    assign p1_shield_on = p1_shield_box && !p1_shield_inner && p1_shield_dash;
+
+    assign p2_shield_box =
+        (x >= p2_sh_x_l) && (x <= p2_sh_x_r) &&
+        (y >= p2_sh_y_t) && (y <= p2_sh_y_b);
+
+    assign p2_shield_inner =
+        (x > p2_sh_x_l+1) && (x < p2_sh_x_r-1) &&
+        (y > p2_sh_y_t+1) && (y < p2_sh_y_b-1);
+
+    assign p2_shield_dash = (x[2] ^ y[2] ^ frame_anim_reg[2]);
+
+    assign p2_shield_on = p2_shield_box && !p2_shield_inner && p2_shield_dash;
 
     // ------------------------------------------------------------
-    // RGB control
+    // Background styling
+    // ------------------------------------------------------------
+    wire bg_grid_on;
+    wire bg_midline_on;
+
+    assign bg_grid_on    = (x[4:0] == 5'd0) || (y[4:0] == 5'd0);
+    assign bg_midline_on = (x >= 10'd318 && x <= 10'd321);
+
+    // ------------------------------------------------------------
+    // Block patterns
+    // ------------------------------------------------------------
+    wire [5:0] p1_lx = x - p1_x_l;
+    wire [5:0] p1_ly = y - p1_y_t;
+    wire [5:0] p2_lx = x - p2_x_l;
+    wire [5:0] p2_ly = y - p2_y_t;
+
+    // p1 = animated diagonal stripes
+    wire p1_pattern_alt;
+    assign p1_pattern_alt = p1_on && ((p1_lx[4:2] + p1_ly[4:2] + frame_anim_reg[3:1]) & 3'b010);
+
+    // p2 = checker / panel pattern
+    wire p2_pattern_alt;
+    assign p2_pattern_alt = p2_on && (p2_lx[4] ^ p2_ly[4]);
+
+    // ------------------------------------------------------------
+    // Tagger pulse
+    // ------------------------------------------------------------
+    wire [11:0] tagger_outline_rgb;
+    assign tagger_outline_rgb = frame_anim_reg[4] ? TAGGER_RGB_0 : TAGGER_RGB_1;
+
+    // ------------------------------------------------------------
+    // Win impact animation
+    // expanding square-ring from impact point
+    // ------------------------------------------------------------
+    wire [9:0] dx_abs = (x >= impact_x_reg) ? (x - impact_x_reg) : (impact_x_reg - x);
+    wire [9:0] dy_abs = (y >= impact_y_reg) ? (y - impact_y_reg) : (impact_y_reg - y);
+    wire [9:0] dist_box = (dx_abs >= dy_abs) ? dx_abs : dy_abs;
+
+    wire [9:0] impact_radius = {2'b00, game_anim_reg};
+    wire impact_ring_on;
+    assign impact_ring_on = (dist_box >= impact_radius) && (dist_box <= impact_radius + 10'd3);
+
+    // ------------------------------------------------------------
+    // RGB
     // ------------------------------------------------------------
     always @* begin
         if (!video_on) begin
             rgb = 12'h000;
         end
         else if (game_over) begin
-            if (winner == 1'b0)
+            if (impact_ring_on)
+                rgb = IMPACT_RGB;
+            else if (winner == 1'b0)
                 rgb = P1_WIN_RGB;
             else
                 rgb = P2_WIN_RGB;
         end
-        else if (shield_active && flash_toggle && p2_shield_on) begin
-            rgb = SHIELD_RGB;
+        else if (p1_shield_active && p1_flash_toggle && p1_shield_on) begin
+            rgb = SHIELD1_RGB;
+        end
+        else if (p2_shield_active && p2_flash_toggle && p2_shield_on) begin
+            rgb = SHIELD2_RGB;
         end
         else if ((current_tagger == 1'b0) && p1_border_on) begin
-            rgb = TAGGER_RGB;
+            rgb = tagger_outline_rgb;
         end
         else if ((current_tagger == 1'b1) && p2_border_on) begin
-            rgb = TAGGER_RGB;
+            rgb = tagger_outline_rgb;
         end
         else if (p1_on) begin
-            rgb = P1_RGB;
+            if (p1_shield_active && p1_flash_toggle)
+                rgb = 12'hFFF;
+            else if (p1_pattern_alt)
+                rgb = P1_ALT_RGB;
+            else
+                rgb = P1_RGB;
         end
         else if (p2_on) begin
-            if (shield_active && flash_toggle)
-                rgb = 12'hFFF;   // flash player 2 while shield is active
+            if (p2_shield_active && p2_flash_toggle)
+                rgb = 12'hFFF;
+            else if (p2_pattern_alt)
+                rgb = P2_ALT_RGB;
             else
                 rgb = P2_RGB;
+        end
+        else if (bg_midline_on) begin
+            rgb = MIDLINE_RGB;
+        end
+        else if (bg_grid_on) begin
+            rgb = BG_GRID_RGB;
         end
         else begin
             rgb = BG_RGB;
